@@ -38,13 +38,17 @@ static Image *copy_image(const Image *input)
 int main(int argc, char *argv[])
 {
   if (argc < 4) {
-    printf("Usage: %s input.pgm noisy.pgm output.pgm [number_of_runs]\n", argv[0]);
-    return 1;
+  printf("Usage: %s input.pgm noisy.pgm output.pgm "
+         "[number_of_runs] [sigma_noise] [sigma_spatial] [sigma_range]\n",
+         argv[0]);
+  return 1;
   }
 
   int number_of_runs = 1;
+  float sigma_noise = 20.0f;
+  float sigma_spatial = 1.0f;
+  float sigma_range = 25.0f;
 
-  // Read number of benchmark iterations
   if (argc >= 5) {
     number_of_runs = atoi(argv[4]);
 
@@ -53,7 +57,22 @@ int main(int argc, char *argv[])
     }
   }
 
+  if (argc >= 6) {
+    sigma_noise = atof(argv[5]);
+  }
+
+  if (argc >= 7) {
+    sigma_spatial = atof(argv[6]);
+  }
+
+  if (argc >= 8) {
+    sigma_range = atof(argv[7]);
+  }
+
   printf("Number of runs : %d\n", number_of_runs);
+  printf("Sigma noise    : %.2f\n", sigma_noise);
+  printf("Sigma spatial  : %.2f\n", sigma_spatial);
+  printf("Sigma range    : %.2f\n", sigma_range);
 
   double total_execution_time_ms = 0.0;
   double min_execution_time_ms = DBL_MAX;
@@ -79,7 +98,7 @@ int main(int argc, char *argv[])
   }
 
   // Add gaussian noise
-  add_gaussian_noise(noisy, 20.0f);
+  add_gaussian_noise(noisy, sigma_noise);
 
   printf("Gaussian noise added\n");
 
@@ -95,6 +114,11 @@ int main(int argc, char *argv[])
     return 1;
   }
 
+  BilateralLut lut;
+
+  // Initialize LUTs only once before benchmark loop
+  bilateral_init_lut(&lut, sigma_spatial, sigma_range);
+
   for (int run = 0; run < number_of_runs; run++) {
     struct timespec start;
     struct timespec end;
@@ -102,7 +126,7 @@ int main(int argc, char *argv[])
     // Start execution timer
     clock_gettime(CLOCK_MONOTONIC, &start);
 
-    int status = bilateral_filter_3x3_inplace_output(noisy, filtered, 1.0f, 25.0f);
+    int status = bilateral_filter_3x3_inplace_output(noisy, filtered, &lut);
 
     // Stop execution timer
     clock_gettime(CLOCK_MONOTONIC, &end);
