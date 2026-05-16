@@ -74,6 +74,29 @@ static void compute_range_lut(float range_lut[INTENSITY_LEVELS],
   }
 }
 
+static inline void accumulate_neighbor(const uint8_t *data,
+                                int neighbor_index,
+                                int center_pixel,
+                                float spatial_weight,
+                                const float range_lut[INTENSITY_LEVELS],
+                                float *weighted_sum,
+                                float *weight_sum)
+  {
+    int neighbor_pixel = data[neighbor_index];
+
+    int intensity_difference = neighbor_pixel - center_pixel;
+
+    if (intensity_difference < 0) {
+      intensity_difference = -intensity_difference;
+    }
+
+    float weight =
+      spatial_weight * range_lut[intensity_difference];
+
+    *weighted_sum += weight * neighbor_pixel;
+    *weight_sum += weight;
+  }
+
 // Function used to apply an optimized 3x3 bilateral filter on a grayscale image
 Image *bilateral_filter_3x3(const Image *input,
                             float sigma_spatial,
@@ -99,8 +122,8 @@ Image *bilateral_filter_3x3(const Image *input,
     output->data[i] = input->data[i];
   }
 
-  for (int y = 0; y < height - 1; y++) {
-    for (int x = 0; x < width - 1; x++) {
+  for (int y = 1; y < height - 1; y++) {
+    for (int x = 1; x < width - 1; x++) {
 
       int center_index = y * width + x;
       int center_pixel = input->data[center_index];
@@ -108,33 +131,36 @@ Image *bilateral_filter_3x3(const Image *input,
       float weighted_sum = 0.0f;
       float weight_sum = 0.0f;
 
-      for (int ky = -KERNEL_RADIUS; ky <= KERNEL_RADIUS; ky++) {
-        for (int kx = -KERNEL_RADIUS; kx <= KERNEL_RADIUS; kx++) {
+      int row_above = center_index - width;
+      int row_center = center_index;
+      int row_below = center_index + width;
 
-          int nx = x + kx;
-          int ny = y + ky;
-
-          int neighbor_index = ny * width + nx;
-          int neighbor_pixel = input->data[neighbor_index];
-
-          int intensity_difference = neighbor_pixel - center_pixel;
-
-          if (intensity_difference < 0) {
-            intensity_difference = -intensity_difference;
-          }
-
-          float spatial_weight =
-            spatial_lut[ky + KERNEL_RADIUS][kx + KERNEL_RADIUS];
-
-          float range_weight =
-            range_lut[intensity_difference];
-
-          float weight = spatial_weight * range_weight;
-
-          weighted_sum += weight * neighbor_pixel;
-          weight_sum += weight;
-        }
-      }
+      accumulate_neighbor(input->data, row_above - 1, center_pixel,
+        spatial_lut[0][0], range_lut, &weighted_sum, &weight_sum);
+      
+      accumulate_neighbor(input->data, row_above, center_pixel,
+        spatial_lut[0][1], range_lut, &weighted_sum, &weight_sum);
+      
+      accumulate_neighbor(input->data, row_above + 1, center_pixel,
+        spatial_lut[0][2], range_lut, &weighted_sum, &weight_sum);
+      
+      accumulate_neighbor(input->data, row_center - 1, center_pixel,
+        spatial_lut[1][0], range_lut, &weighted_sum, &weight_sum);
+      
+      accumulate_neighbor(input->data, row_center, center_pixel,
+        spatial_lut[1][1], range_lut, &weighted_sum, &weight_sum);
+      
+      accumulate_neighbor(input->data, row_center + 1, center_pixel,
+        spatial_lut[1][2], range_lut, &weighted_sum, &weight_sum);
+      
+      accumulate_neighbor(input->data, row_below - 1, center_pixel,
+        spatial_lut[2][0], range_lut, &weighted_sum, &weight_sum);
+      
+      accumulate_neighbor(input->data, row_below, center_pixel,
+        spatial_lut[2][1], range_lut, &weighted_sum, &weight_sum);
+      
+      accumulate_neighbor(input->data, row_below + 1, center_pixel,
+        spatial_lut[2][2], range_lut, &weighted_sum, &weight_sum);
 
       int filtered_pixel = (int)(weighted_sum / weight_sum + 0.5f);
 
