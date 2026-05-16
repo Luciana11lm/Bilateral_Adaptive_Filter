@@ -1,6 +1,6 @@
 CC=gcc
 
-CFLAGS=-Wall -Wextra -O0
+CFLAGS=-Wall -Wextra -O3 -fopenmp
 
 SRC=src/main.c \
     src/image_io.c \
@@ -15,12 +15,13 @@ NOISY_IMAGE=images/noisy.pgm
 OUTPUT_IMAGE=images/output.pgm
 
 NUMBER_OF_RUNS ?= 1
+NUM_THREADS ?= 4
 
 build:
 	$(CC) $(SRC) -o $(OUT) $(CFLAGS) -lm
 
 run:
-	./$(OUT) \
+	OMP_NUM_THREADS=$(NUM_THREADS) ./$(OUT) \
 	$(INPUT_IMAGE) \
 	$(NOISY_IMAGE) \
 	$(OUTPUT_IMAGE) \

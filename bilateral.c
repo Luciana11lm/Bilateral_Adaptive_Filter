@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
+#include <omp.h>
 
 #include "bilateral.h"
 
@@ -132,6 +133,7 @@ int bilateral_filter_3x3_inplace_output(const Image *input,
     output->data[i] = input->data[i];
   }
 
+  #pragma omp parallel for
   for (int y = 1; y < height - 1; y++) {
     for (int x = 1; x < width - 1; x++) {
 
